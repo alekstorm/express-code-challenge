@@ -7,15 +7,11 @@ const User = db.define('users', {
   email: Sequelize.STRING,
   password: Sequelize.STRING,
   role: Sequelize.ENUM('academic', 'administrator', 'student'),
+  institution_id: Sequelize.INTEGER,
 }, {underscored: true});
 
 User.associate = function(models) {
-  User.Institutions = User.belongsToMany(models.Institution, {
-    through: 'institutions_users',
-    as: 'institutions',
-    foreignKey: 'user_id',
-    otherKey: 'institution_id',
-  });
+  User.Institution = User.belongsTo(models.Institution);
 };
 
 module.exports = User;

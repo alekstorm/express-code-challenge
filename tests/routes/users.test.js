@@ -158,19 +158,16 @@ describe('User routes', () => {
 
       const user = await User.findOne({
         where: {email: 'chomsky@mit.edu'},
-        include: [{association: User.Institutions}],
       });
       expect(user).toMatchObject({
         name: 'Noam Chomsky',
         email: 'chomsky@mit.edu',
         role: 'academic',
+        institution_id: institution.id,
       });
 
       const passwordMatched = await compareHash('colorlessGreenIdeas', user.password);
       expect(passwordMatched).toBe(true);
-
-      expect(user.institutions.length).toEqual(1);
-      expect(user.institutions[0].id).toEqual(institution.id);
     }, 30000);
   });
 });

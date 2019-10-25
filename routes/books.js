@@ -9,15 +9,14 @@ const router = express.Router();
 router.get('/', authenticated, async (req, res) => {
   const user = await User.findByPk(req.user.id, {
     include: [{
-      association: User.Institutions,
+      association: User.Institution,
       include: [{
         association: Institution.Books,
       }],
     }],
   });
 
-  const books = user.institutions.flatMap((institution) => institution.books);
-  res.status(200).send(books);
+  res.status(200).send({status: 'success', data: user.institution.books});
 });
 
 module.exports = router;

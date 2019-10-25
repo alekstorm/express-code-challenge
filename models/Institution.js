@@ -16,12 +16,7 @@ Institution.associate = function(models) {
     otherKey: 'book_id',
   });
 
-  Institution.Users = Institution.belongsToMany(models.User, {
-    through: 'institutions_users',
-    as: 'users',
-    foreignKey: 'institution_id',
-    otherKey: 'user_id',
-  });
+  Institution.Users = Institution.hasMany(models.User);
 };
 
 module.exports = Institution;

@@ -6,7 +6,6 @@ const {associate} = require('../../models');
 const Book = require('../../models/Book');
 const Institution = require('../../models/Institution');
 const InstitutionBook = require('../../models/InstitutionBook');
-const InstitutionUser = require('../../models/InstitutionUser');
 const User = require('../../models/User');
 const books = require('../../routes/books');
 const {hash} = require('../../util');
@@ -31,17 +30,18 @@ describe('Book routes', () => {
     }, 30000);
 
     it('should get all books for user', async () => {
+      const mit = await Institution.create({
+        name: 'Massachusetts Institute of Technology',
+        url: 'https://web.mit.edu',
+        email_domain: 'mit.edu',
+      });
+
       const user = await User.create({
         name: 'Noam Chomsky',
         email: 'chomsky@mit.edu',
         password: await hash('colorlessGreenIdeas'),
         role: 'academic',
-      });
-
-      const mit = await Institution.create({
-        name: 'Massachusetts Institute of Technology',
-        url: 'https://web.mit.edu',
-        email_domain: 'mit.edu',
+        institution_id: mit.id,
       });
 
       const computerScience = await Book.create({
@@ -64,22 +64,17 @@ describe('Book routes', () => {
         book_id: languageSounds.id,
       });
 
-      await InstitutionUser.create({
-        institution_id: mit.id,
-        user_id: user.id,
-      });
-
       const res = await supertest(appWithUser(app, user))
         .get('/')
         .send();
       expect(res.statusCode).toEqual(200);
-      expect(res.body.length).toEqual(2);
-      expect(res.body.filter(({id}) => id === computerScience.id)[0]).toMatchObject({
+      expect(res.body.data.length).toEqual(2);
+      expect(res.body.data.filter(({id}) => id === computerScience.id)[0]).toMatchObject({
         isbn: '978-0132166751',
         title: 'A Balanced Introduction to Computer Science',
         author: 'David Reed',
       });
-      expect(res.body.filter(({id}) => id === languageSounds.id)[0]).toMatchObject({
+      expect(res.body.data.filter(({id}) => id === languageSounds.id)[0]).toMatchObject({
         isbn: '978-0631198154',
         title: 'The Sounds of the World\'s Languages',
         author: 'Peter Ladefoged',

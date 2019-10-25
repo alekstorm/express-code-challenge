@@ -3,7 +3,6 @@ const {body, validationResult} = require('express-validator');
 const passport = require('passport');
 
 const Institution = require('../models/Institution');
-const InstitutionUser = require('../models/InstitutionUser');
 const User = require('../models/User');
 const db = require('../db');
 const {hash} = require('../util');
@@ -49,15 +48,12 @@ router.post('/create', [
       });
     }
 
-    const user = await User.create({
+    await User.create({
       name: req.body.name,
       email: req.body.email,
       role: req.body.role, // TODO authorize?
       password: await hash(req.body.password),
-    }, {transaction});
-    await InstitutionUser.create({
       institution_id: institution.id,
-      user_id: user.id,
     }, {transaction});
 
     res.status(201).send({status: 'success', data: null});
