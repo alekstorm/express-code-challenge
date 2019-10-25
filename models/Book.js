@@ -6,7 +6,7 @@ const Book = db.define('books', {
   isbn: Sequelize.STRING,
   title: Sequelize.STRING,
   author: Sequelize.STRING,
-}, {});
+}, {underscored: true});
 
 Book.associate = function(models) {
   Book.belongsToMany(models.Institution, {

@@ -1,13 +1,12 @@
 const supertest = require('supertest');
 
 const app = require('../../app')({secret: 'secret'});
-const models = require('../../models');
+const db = require('../../db');
+const Institution = require('../../models/Institution');
+const User = require('../../models/User');
+const {associate} = require('../../models');
 const users = require('../../routes/users');
 const {compareHash, hash} = require('../../util');
-
-beforeEach(() => (
-  Promise.all(Object.values(models).map((model) => model.sync({force: true})))
-));
 
 app.use('/', users);
 
@@ -24,9 +23,16 @@ const USER_PARAMS = {
 };
 
 describe('User routes', () => {
+  beforeAll(async () => {
+    await db.sync({force: true});
+    associate();
+  });
+
+  beforeEach(() => db.sync({force: true}));
+
   describe('POST /users/signin', () => {
     beforeEach(async () => (
-      models.User.create({
+      User.create({
         name: 'Noam Chomsky',
         email: 'chomsky@mit.edu',
         password: await hash('colorlessGreenIdeas'),
@@ -97,7 +103,7 @@ describe('User routes', () => {
     });
 
     it('should fail when email is taken', async () => {
-      await models.User.create({
+      await User.create({
         name: 'Impostor',
         email: 'chomsky@mit.edu',
         password: 'password',
@@ -140,7 +146,7 @@ describe('User routes', () => {
     });
 
     it('should succeed', async () => {
-      const institution = await models.Institution.create({
+      const institution = await Institution.create({
         name: 'MIT',
         url: 'https://web.mit.edu',
         email_domain: 'mit.edu',
@@ -150,9 +156,9 @@ describe('User routes', () => {
       expect(res.statusCode).toEqual(201);
       expect(res.body).toEqual({status: 'success', data: null});
 
-      const user = await models.User.findOne({
+      const user = await User.findOne({
         where: {email: 'chomsky@mit.edu'},
-        include: [{association: models.User.Institutions}],
+        include: [{association: User.Institutions}],
       });
       expect(user).toMatchObject({
         name: 'Noam Chomsky',

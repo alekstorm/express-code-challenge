@@ -4,9 +4,20 @@ const InstitutionBook = require('./models/InstitutionBook.js');
 const InstitutionUser = require('./models/InstitutionUser.js');
 const User = require('./models/User.js');
 
-const models = {Book, Institution, InstitutionBook, InstitutionUser, User};
-Object.values(models).forEach((model) => {
-  model.associate(models);
-});
+const MODELS = {
+  Book,
+  Institution,
+  InstitutionBook,
+  InstitutionUser,
+  User,
+};
 
-module.exports = models;
+function associate() {
+  Object.values(MODELS).forEach((model) => {
+    model.associate(MODELS);
+  });
+}
+
+module.exports = {
+  associate,
+};

@@ -9,14 +9,14 @@ const Institution = db.define('institutions', {
 }, {underscored: true});
 
 Institution.associate = function(models) {
-  Institution.belongsToMany(models.Institution, {
+  Institution.Books = Institution.belongsToMany(models.Book, {
     through: 'institutions_books',
     as: 'books',
     foreignKey: 'institution_id',
     otherKey: 'book_id',
   });
 
-  Institution.belongsToMany(models.Institution, {
+  Institution.Users = Institution.belongsToMany(models.User, {
     through: 'institutions_users',
     as: 'users',
     foreignKey: 'institution_id',
