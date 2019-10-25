@@ -1,11 +1,8 @@
-const express = require('express');
-
+const app = require('./app')({secret: process.env.CODE_CHALLENGE_SECRET});
 require('./models');
-const index = require('./routes/index.js');
-const users = require('./routes/users.js');
+const index = require('./routes/index');
+const users = require('./routes/users');
 
-const app = express();
-app.use(express.json());
 app.get('/', index);
 app.use('/users', users);
 

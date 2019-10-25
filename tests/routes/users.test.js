@@ -1,19 +1,20 @@
-const util = require('util');
-
-const bcrypt = require('bcrypt');
-const express = require('express');
 const supertest = require('supertest');
 
+const app = require('../../app')({secret: 'secret'});
 const models = require('../../models');
 const users = require('../../routes/users');
+const {compareHash, hash} = require('../../util');
 
 beforeEach(() => (
   Promise.all(Object.values(models).map((model) => model.sync({force: true})))
 ));
 
-const app = express();
-app.use(express.json());
 app.use('/', users);
+
+const SIGNIN_PARAMS = {
+  email: 'chomsky@mit.edu',
+  password: 'colorlessGreenIdeas',
+};
 
 const USER_PARAMS = {
   name: 'Noam Chomsky',
@@ -22,99 +23,148 @@ const USER_PARAMS = {
   role: 'academic',
 };
 
-async function createUser(params) {
-  return await supertest(app)
-    .post('/create')
-    .send(params);
-}
-
 describe('User routes', () => {
-  it('should fail when name is missing', async () => {
-    const res = await createUser({...USER_PARAMS, name: null});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {name: 'Invalid value'}});
+  describe('POST /users/signin', () => {
+    beforeEach(async () => (
+      models.User.create({
+        name: 'Noam Chomsky',
+        email: 'chomsky@mit.edu',
+        password: await hash('colorlessGreenIdeas'),
+        role: 'academic',
+      })
+    ), 30000);
+
+    it('should fail when email is missing', async () => {
+      const res = await supertest(app)
+        .post('/signin')
+        .send({...SIGNIN_PARAMS, email: null});
+      expect(res.statusCode).toEqual(400);
+    }, 30000);
+
+    it('should fail when email is nonexistent', async () => {
+      const res = await supertest(app)
+        .post('/signin')
+        .send({...SIGNIN_PARAMS, email: 'jakobson@mit.edu'});
+      expect(res.statusCode).toEqual(401);
+    }, 30000);
+
+    it('should fail when password is missing', async () => {
+      const res = await supertest(app)
+        .post('/signin')
+        .send({...SIGNIN_PARAMS, password: null});
+      expect(res.statusCode).toEqual(400);
+    }, 30000);
+
+    it('should fail when password is incorrect', async () => {
+      const res = await supertest(app)
+        .post('/signin')
+        .send({...SIGNIN_PARAMS, password: 'incorrect'});
+      expect(res.statusCode).toEqual(401);
+    }, 30000);
+
+    it('should sign in', async () => {
+      const res = await supertest(app)
+        .post('/signin')
+        .send(SIGNIN_PARAMS);
+      expect(res.statusCode).toEqual(302);
+      expect(res.headers).toHaveProperty('set-cookie');
+    }, 30000);
   });
 
-  it('should fail when email is missing', async () => {
-    const res = await createUser({...USER_PARAMS, email: null});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {email: 'Invalid value'}});
-  });
+  describe('POST /users/create', () => {
+    async function createUser(params) {
+      return await supertest(app)
+        .post('/create')
+        .send(params);
+    }
 
-  it('should fail when email is invalid', async () => {
-    const res = await createUser({...USER_PARAMS, email: 'not-an-email'});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {email: 'Invalid value'}});
-  });
-
-  it('should fail when email is taken', async () => {
-    await models.User.create({
-      name: 'Impostor',
-      email: 'chomsky@mit.edu',
-      password: 'password',
-      role: 'academic',
+    it('should fail when name is missing', async () => {
+      const res = await createUser({...USER_PARAMS, name: null});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {name: 'Invalid value'}});
     });
 
-    const res = await createUser(USER_PARAMS);
-    expect(res.statusCode).toEqual(400);
-    expect(res.body).toEqual({status: 'fail', data: {email: 'User with specified email address already exists'}});
-  });
-
-  it('should fail when email domain doesn\'t match an institution', async () => {
-    const res = await createUser(USER_PARAMS);
-    expect(res.statusCode).toEqual(400);
-    expect(res.body).toEqual({status: 'fail', data: {email: 'Institution with the domain of the specified email address does not exist'}});
-  });
-
-  it('should fail when password is missing', async () => {
-    const res = await createUser({...USER_PARAMS, password: null});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {password: 'Invalid value'}});
-  });
-
-  it('should fail when password is too short', async () => {
-    const res = await createUser({...USER_PARAMS, password: 'short'});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {password: 'Invalid value'}});
-  });
-
-  it('should fail when role is missing', async () => {
-    const res = await createUser({...USER_PARAMS, role: null});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {role: 'Invalid value'}});
-  });
-
-  it('should fail when role is unrecognized', async () => {
-    const res = await createUser({...USER_PARAMS, role: 'not-a-role'});
-    expect(res.statusCode).toEqual(422);
-    expect(res.body).toEqual({status: 'fail', data: {role: 'Invalid value'}});
-  });
-
-  it('should succeed', async () => {
-    const institution = await models.Institution.create({
-      name: 'MIT',
-      url: 'https://web.mit.edu',
-      email_domain: 'mit.edu',
+    it('should fail when email is missing', async () => {
+      const res = await createUser({...USER_PARAMS, email: null});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {email: 'Invalid value'}});
     });
 
-    const res = await createUser(USER_PARAMS);
-    expect(res.statusCode).toEqual(201);
-    expect(res.body).toEqual({status: 'success', data: null});
-
-    const user = await models.User.findOne({
-      where: {email: 'chomsky@mit.edu'},
-      include: [{association: models.User.Institutions}],
-    });
-    expect(user).toMatchObject({
-      name: 'Noam Chomsky',
-      email: 'chomsky@mit.edu',
-      role: 'academic',
+    it('should fail when email is invalid', async () => {
+      const res = await createUser({...USER_PARAMS, email: 'not-an-email'});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {email: 'Invalid value'}});
     });
 
-    const passwordMatched = await util.promisify(bcrypt.compare)('colorlessGreenIdeas', user.password);
-    expect(passwordMatched).toBe(true);
+    it('should fail when email is taken', async () => {
+      await models.User.create({
+        name: 'Impostor',
+        email: 'chomsky@mit.edu',
+        password: 'password',
+        role: 'academic',
+      });
 
-    expect(user.institutions.length).toEqual(1);
-    expect(user.institutions[0].id).toEqual(institution.id);
-  }, 15000);
+      const res = await createUser(USER_PARAMS);
+      expect(res.statusCode).toEqual(400);
+      expect(res.body).toEqual({status: 'fail', data: {email: 'User with specified email address already exists'}});
+    });
+
+    it('should fail when email domain doesn\'t match an institution', async () => {
+      const res = await createUser(USER_PARAMS);
+      expect(res.statusCode).toEqual(400);
+      expect(res.body).toEqual({status: 'fail', data: {email: 'Institution with the domain of the specified email address does not exist'}});
+    });
+
+    it('should fail when password is missing', async () => {
+      const res = await createUser({...USER_PARAMS, password: null});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {password: 'Invalid value'}});
+    });
+
+    it('should fail when password is too short', async () => {
+      const res = await createUser({...USER_PARAMS, password: 'short'});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {password: 'Invalid value'}});
+    });
+
+    it('should fail when role is missing', async () => {
+      const res = await createUser({...USER_PARAMS, role: null});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {role: 'Invalid value'}});
+    });
+
+    it('should fail when role is unrecognized', async () => {
+      const res = await createUser({...USER_PARAMS, role: 'not-a-role'});
+      expect(res.statusCode).toEqual(422);
+      expect(res.body).toEqual({status: 'fail', data: {role: 'Invalid value'}});
+    });
+
+    it('should succeed', async () => {
+      const institution = await models.Institution.create({
+        name: 'MIT',
+        url: 'https://web.mit.edu',
+        email_domain: 'mit.edu',
+      });
+
+      const res = await createUser(USER_PARAMS);
+      expect(res.statusCode).toEqual(201);
+      expect(res.body).toEqual({status: 'success', data: null});
+
+      const user = await models.User.findOne({
+        where: {email: 'chomsky@mit.edu'},
+        include: [{association: models.User.Institutions}],
+      });
+      expect(user).toMatchObject({
+        name: 'Noam Chomsky',
+        email: 'chomsky@mit.edu',
+        role: 'academic',
+      });
+
+      const passwordMatched = await compareHash('colorlessGreenIdeas', user.password);
+      expect(passwordMatched).toBe(true);
+
+      expect(user.institutions.length).toEqual(1);
+      expect(user.institutions[0].id).toEqual(institution.id);
+    }, 30000);
+  });
 });

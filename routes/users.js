@@ -1,17 +1,16 @@
-const util = require('util');
-
-const bcrypt = require('bcrypt');
 const express = require('express')
 const {body, validationResult} = require('express-validator');
+const passport = require('passport');
 
 const Institution = require('../models/Institution');
 const InstitutionUser = require('../models/InstitutionUser');
 const User = require('../models/User');
 const db = require('../db');
-
-const HASH_ROUNDS = 16;
+const {hash} = require('../util');
 
 const router = express.Router();
+
+router.post('/signin', passport.authenticate('local', {successRedirect: '/'}));
 
 router.post('/create', [
     body('name').isLength({min: 1}),
@@ -50,12 +49,11 @@ router.post('/create', [
       });
     }
 
-    const hashedPassword = await util.promisify(bcrypt.hash)(req.body.password, HASH_ROUNDS);
     const user = await User.create({
       name: req.body.name,
       email: req.body.email,
       role: req.body.role, // TODO authorize?
-      password: hashedPassword,
+      password: await hash(req.body.password),
     }, {transaction});
     await InstitutionUser.create({
       institution_id: institution.id,
